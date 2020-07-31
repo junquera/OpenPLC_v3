@@ -540,6 +540,8 @@ def dashboard():
         return_str += "<p style='font-family:'Roboto', sans-serif; font-size:16px'><b>File:</b> " + openplc_runtime.project_file + "</p>"
         return_str += "<p style='font-family:'Roboto', sans-serif; font-size:16px'><b>Runtime:</b> " + openplc_runtime.exec_time() + "</p>"
         
+        return_str += "<a href='download-running' target='_blank' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Download binary</b></a>"
+        
         return_str += pages.dashboard_tail
         
         return return_str
@@ -672,7 +674,7 @@ def reload_program():
                 return_str += "<label for='prog_descr'><b>Description</b></label><textarea type='text' rows='10' style='resize:vertical' id='prog_descr' name='program_descr' disabled>" + str(row[2]) + "</textarea>"
                 return_str += "<label for='prog_file'><b>File</b></label><input type='text' id='prog_file' name='program_file' value='" + str(row[3]) + "' disabled>"
                 return_str += "<label for='prog_date'><b>Date Uploaded</b></label><input type='text' id='prog_date' name='program_date' value='" + time.strftime('%b %d, %Y - %I:%M%p', time.localtime(row[4])) + "' disabled>"
-                return_str += "<br><br><center><a href='compile-program?file=" + str(row[3]) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Launch program</b></a><a href='update-program?id=" + str(prog_id) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Update program</b></a><a href='remove-program?id=" + str(prog_id) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Remove program</b></a></center>"
+                return_str += "<br><br><center><a href='compile-program?file=" + str(row[3]) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Launch program</b></a><a href='update-program?id=" + str(prog_id) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Update program</b></a><a href='remove-program?id=" + str(prog_id) + "' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Remove program</b></a><a href='download-program?id=" + str(prog_id) + "' target='_blank' class='button' style='width: 200px; height: 53px; margin: 0px 20px 0px 20px;'><b>Download program</b></a></center>"
                 return_str += """
                 </div>
             </div>
@@ -800,6 +802,41 @@ def remove_program():
         else:
             return 'Error connecting to the database. Make sure that your openplc.db file is not corrupt.'
 
+
+@app.route('/download-program', methods=['GET'])
+def download_program():
+    if (flask_login.current_user.is_authenticated == False):
+        return flask.redirect(flask.url_for('login'))
+    else:
+        prog_id = flask.request.args.get('id')
+        database = "openplc.db"
+        conn = create_connection(database)
+        if (conn != None):
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT File FROM Programs WHERE Prog_ID = ?", (int(prog_id),))
+                program = cur.fetchone()
+
+                cur.close()
+                conn.close()
+
+                prog_path = os.path.join('st_files', program[0])
+                
+                return flask.send_file(prog_path, as_attachment=True, attachment_filename=program[0])
+                
+            except Error as e:
+                print("error connecting to the database" + str(e))
+                return 'Error connecting to the database. Make sure that your openplc.db file is not corrupt.<br><br>Error: ' + str(e)
+        else:
+            return 'Error connecting to the database. Make sure that your openplc.db file is not corrupt.'
+
+@app.route('/download-running', methods=['GET'])
+def download_running_program():
+    if (flask_login.current_user.is_authenticated == False):
+        return flask.redirect(flask.url_for('login'))
+    else:
+        running_program_path = os.path.abspath("./core/openplc")
+        return flask.send_file(running_program_path, as_attachment=True, attachment_filename=openplc_runtime.project_file + ".bin")
 
 @app.route('/upload-program', methods=['GET', 'POST'])
 def upload_program():
